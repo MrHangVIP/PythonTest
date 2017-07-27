@@ -2,6 +2,8 @@
 import re
 import urlparse
 
+import MySQLdb
+
 from bs4 import BeautifulSoup
 
 

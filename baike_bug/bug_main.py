@@ -1,9 +1,10 @@
 # coding:utf8
-from baike_bug import url_manager, html_downloader, html_parser, html_output
+from baike_bug import url_manager, html_downloader, html_parser, html_output, dbconfig
 
 
 class BugMain(object):
     def __init__(self):
+        dbconfig.DB_Config().connectDB()
         self.urls = url_manager.UrlManager()
         self.downloader = html_downloader.HtmlDownloader()
         self.parser = html_parser.HtmlParser()
@@ -17,7 +18,6 @@ class BugMain(object):
                 new_url = self.urls.get_new_url()
                 print 'craw %d : %s' % (count, new_url)
                 html_cont = self.downloader.download(new_url)
-                print 'parse'
                 new_urls, new_data = self.parser.parse(new_url, html_cont)
                 self.urls.add_new_urls(new_urls)
                 self.outputer.collect_data(new_data)
@@ -30,6 +30,6 @@ class BugMain(object):
 
 
 if __name__ == "__main__":
-    root_url = "https://baike.baidu.com/item/Python/407313?fr=aladdin"
+    root_url = "http://www.qidian.com/"
     ojb_bug = BugMain()
     ojb_bug.craw(root_url)
