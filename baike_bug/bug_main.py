@@ -1,9 +1,16 @@
 # coding:utf8
-from baike_bug import url_manager, html_downloader, html_parser, html_output, db_config, db_util
+import sys
+
+from baike_bug import url_manager, html_downloader, html_parser, html_output, db_util
+
+defaultencoding = 'utf-8'
 
 
 class BugMain(object):
     def __init__(self):
+        if sys.getdefaultencoding() != defaultencoding:
+            reload(sys)
+            sys.setdefaultencoding(defaultencoding)
         self.urls = url_manager.UrlManager()
         self.downloader = html_downloader.HtmlDownloader()
         self.parser = html_parser.HtmlParser()
@@ -23,29 +30,32 @@ class BugMain(object):
                 if info_data is not None:
                     sql = "insert into t_novel(novelurl, novelname, clicknum, wordsnum, type, " \
                           "author, isfinish, biref, imageurl) values " \
-                          "('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" %\
-                          (info_data['info_url'] ,info_data['novelName'], info_data['clickNum'],
-                           info_data['wordsNum'], info_data['type'], info_data['author'], info_data['state'],
-                           info_data['brief'], info_data['imageUrl'])
+                          "('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % \
+                          (info_data['info_url'].encode('utf-8'), info_data['novelName'].encode('utf-8'),
+                           info_data['clickNum'],
+                           info_data['wordsNum'].encode('utf-8'), info_data['type'].encode('utf-8'),
+                           info_data['author'].encode('utf-8'), info_data['state'].encode('utf-8'),
+                           info_data['brief'].encode('utf-8'), info_data['imageUrl'].encode('utf-8'))
                     self.dbutil.insert(sql)
 
                 if chapter_datas is not None:
                     for chapter_data in chapter_datas:
                         sql = "insert into t_chapter(novelurl, chaptername, chapterurl, chapternum) values " \
                               "('%s', '%s', '%s', '%s')" % \
-                              (chapter_data['info_url'], chapter_data['chapterName'], chapter_data['chapterUrl'],
-                               chapter_data['chapterNum'])
+                              (chapter_data['info_url'].encode('utf-8'), chapter_data['chapterName'].encode('utf-8'),
+                               chapter_data['chapterUrl'].encode('utf-8'),
+                               chapter_data['chapterNum'].encode('utf-8'))
                         self.dbutil.insert(sql)
                 # if count == 2:
                 #     break
                 count = count + 1
-            except:
-                print 'craw fail'
+            except Exception, e:
+                print 'craw fail:' + str(e)
         print 'finish'
         # 关闭数据库连接
         self.dbutil.close()
-            # self.outputer.output_html()
-        self.dbutil.db.close()#关闭数据库链接
+        # self.outputer.output_html()
+        self.dbutil.db.close()  # 关闭数据库链接
 
 
 if __name__ == "__main__":

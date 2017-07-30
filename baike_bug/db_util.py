@@ -1,9 +1,16 @@
 # encoding:utf8
+import sys
+
 from baike_bug import db_config
+
+defaultencoding = 'utf-8'
 
 
 class DB_Util(object):
     def __init__(self):
+        if sys.getdefaultencoding() != defaultencoding:
+            reload(sys)
+            sys.setdefaultencoding(defaultencoding)
         self.db = db_config.DB_Config().connect()
         self.cursor = self.db.cursor()
 
@@ -13,8 +20,9 @@ class DB_Util(object):
             self.cursor.execute(sql)
             # 提交到数据库执行
             self.db.commit()
-        except:
+        except Exception, e:
             # 发生错误时回滚
+            print "insert fail:" + e
             self.db.rollback()
 
     def query(self, sql):
@@ -38,6 +46,3 @@ class DB_Util(object):
                       (fname, lname, age, sex, income)
         except:
             print "Error: unable to fecth data"
-
-
-

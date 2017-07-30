@@ -2,15 +2,17 @@
 import re
 import urlparse
 
+from baike_bug import html_downloader, db_util
 from bs4 import BeautifulSoup
 
-from baike_bug import html_downloader, db_util
+from baike_bug import file_output
 
 
 class HtmlParser(object):
     def __init__(self):
         self.downloader = html_downloader.HtmlDownloader()
         self.dbutil = db_util.DB_Util()
+        self.outputFile = file_output.FileOutPut()
 
     # 本地方法需要先定义在使用，也就是定义得放在前面不然无法调用
     def _get_new_urls(self, page_url, soup):
@@ -41,7 +43,7 @@ class HtmlParser(object):
 
         # 文章数据解析
 
-    def _parse_chapter(self, chapter_url):
+    def _parse_chapter(self, chapter_url, info_url):
         if chapter_url is None:
             return
         html_cont = self.downloader.download(chapter_url)
@@ -49,12 +51,12 @@ class HtmlParser(object):
             return
         soup = BeautifulSoup(html_cont, 'html.parser', from_encoding='utf-8')
         # new_urls = self._get_new_urls(chapter_url, soup)  # self调本地方法，通过url
-        content_data = self._parse_content_data(chapter_url, soup)
+        content_data = self._parse_content_data(info_url, chapter_url, soup)
 
         if content_data is not None:
             sql = "insert into t_content(chapterurl, content, nexturl, preurl) values " \
                   "('%s', '%s', '%s', '%s')" % \
-                  (content_data['chapterUrl'], content_data['content'], content_data['nextUrl'],
+                  (content_data['chapterUrl'], content_data['content'].encode('utf-8'), content_data['nextUrl'],
                    content_data['preUrl'])
             self.dbutil.insert(sql)
 
@@ -110,10 +112,12 @@ class HtmlParser(object):
         chapter_list = []
         if page_url.find("info") == -1:
             return None
-        count = 0
+        count = 1
         # 匹配title  <dd class="lemmaWgt-lemmaTitle-title">
         chapter_list_node = soup.find('div', class_="volume-wrap")
         for chapter in chapter_list_node.find_all('li'):
+            if count > 1:
+                return chapter_list
             chapter_data = {}
             chapter_data['info_url'] = page_url
             chapter_data['chapterNum'] = count
@@ -121,24 +125,27 @@ class HtmlParser(object):
             chapter_data['chapterUrl'] = chapter.find('a').get('href')
             # join 方法会按照pageurl的格式将new_url补全
             chapter_data['chapterUrl'] = urlparse.urljoin(page_url, chapter_data['chapterUrl'])
+            count = count + 1
             try:
                 if chapter.find('a').get('href') is not None:
-                    self._parse_chapter(chapter_data['chapterUrl'])  # 解析内容数据
-            except:
-                print "parse_chapter() fail "
+                    self._parse_chapter(chapter_data['chapterUrl'], page_url)  # 解析内容数据
+            except Exception, e:
+                print "parse_chapter() fail:" + e
             chapter_list.append(chapter_data)
-        return chapter_data
+        return chapter_list
 
     # 内容信息解析  文章内容，章节url，上一章节url，下一章节url
-    def _parse_content_data(self, page_url, soup):
+    def _parse_content_data(self, info_url, chapter_url, soup):
         # self._get_new_urls(page_url, soup)
         content_data = {}
-        if page_url.find("chapter") == -1:
+        if chapter_url.find("chapter") == -1:
             return None
-        content_data['chapterUrl'] = page_url
+        content_data['chapterUrl'] = chapter_url
         content_node = soup.find('div', class_="read-content j_readContent")
         # content_data['content'] = content_node.get_text()
-        content_data['content'] = "hahah"
+        filepath = self.outputFile.file_output(content_node.get_text(), info_url.split("/").pop(),
+                                               chapter_url.split("/").pop())
+        content_data['content'] = filepath
         # p_nodes = content_node.find_all('p')
         # for content in p_nodes:
         #     content_data['content'] = content_data['content'] + '\\n' + content.get_text()
@@ -148,10 +155,10 @@ class HtmlParser(object):
         chapter_node = soup.find('div', class_="chapter-control dib-wrap")
         for a in chapter_node.find_all('a'):
             if a.get('id') is not None and a.get('id').find("j_chapterPrev") != -1:
-                content_data['preUrl'] = a.get('href')
+                content_data['preUrl'] = urlparse.urljoin(chapter_url, a.get('href'))
                 continue
             if a.get('id') is not None and a.get('id').find("j_chapterNext") != -1:
-                content_data['nextUrl'] = a.get('href')
+                content_data['nextUrl'] = urlparse.urljoin(chapter_url, a.get('href'))
                 continue
         return content_data
 
